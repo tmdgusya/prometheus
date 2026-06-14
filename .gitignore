@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.DS_Store
+
+# Prometheus runtime state — task progress, survives across sessions.
+.prometheus/
