@@ -1,155 +1,153 @@
 ---
 name: prometheus
-description: A harness that forces verification, completion, and investigation as procedure so that GLM-5.2 (or ZCode's model) takes a task all the way to the end. It steals the procedural fire held by Fable (Anthropic) and brings it to GLM-5.2. Use it for multi-step work (2+ sequential goals), long autonomous tasks, debugging or root-cause investigation, and when producing render/executable artifacts (HTML, SVG, games, charts), or when the user says "prometheus", "끝까지 해줘" (take it all the way), "verify as you go", "목표로 쪼개줘" (split into goals), or "split into goals". It does not allow "done" without evidence — before claiming a task is finished, confirm you ran/observed it yourself. For multi-story, the agent converts each story into a verifiable /goal sentence and proposes it to the user; once the user sets it via /goal (or /goal replace), the ZCode runtime judges completion every turn.
+description: 검증·완수·조사를 절차로 강제해서 GLM-5.2(ZCode의 모델)가 작업을 끝까지 밀고 가게 만드는 하네스. 강한 에이전트 모델의 작업 습관을 GLM-5.2로 가져온다. 다단계 작업(2개 이상의 순차 목표), 긴 자율 작업, 디버깅/원인 조사, 렌더·실행 산출물(HTML, SVG, 게임, 차트)을 만들 때, 또는 사용자가 "prometheus", "끝까지 해줘", "verify as you go", "목표로 쪼개줘"라고 할 때 사용한다. 증거 없는 "완료"를 허락하지 않는다 — 작업이 끝났다고 선언하기 전에 직접 실행/관측한 사실로 확인하라. 다중 스토리에서는 각 스토리를 검증 가능한 /goal 문장으로 바꿔 사용자에게 제안하고, 사용자가 /goal(또는 /goal replace)로 설정하면 ZCode 런타임이 매 턴마다 완료 여부를 판정한다.
 ---
 
 # prometheus 🔥
 
-> Just as Prometheus stole fire from the gods and brought it to humanity, this harness brings the working habits of strong agent models to **GLM-5.2** — run and observe directly, prove completion with evidence, investigate systematically. (The initial form of the code came from fivetaku/fablize, but its effectiveness figures are for a different model family and are not ported here. Effectiveness on GLM-5.2 is unmeasured.)
->
-> Principle: a harness cannot raise a model's ceiling. It only makes the model reach its own ceiling — by forcing verification, completion, and investigation as **procedure**. If what blocks you is a capability ceiling (open-ended creativity, self-directed discovery), escalate (§5).
+> **원칙**: 하네스는 모델의 한계를 높이지 못한다. 다만 모델이 자기 한계까지 닿게 할 뿐이다 — 검증·완수·조사를 **절차**로 강제함으로써. (초기 코드 형태는 fivetaku/fablize에서 왔으나, 그 효과 수치는 다른 모델족 기준이라 여기로 옮기지 않았다. GLM-5.2에서의 효과는 미측정.) 막힌 게 역량 한계(열린 창작, 자율 발견)라면 에스컬레이션하라(§5).
 
-## 0. Bundle files (the sparks)
+## 0. 번들 파일 (불씨)
 
-This skill keeps auxiliary files under `~/.agents/skills/prometheus/`. When you need the path, use the absolute paths below:
+- `~/.agents/skills/prometheus/packs/investigation-protocol.txt` — 디버깅 조사 규율
+- `~/.agents/skills/prometheus/packs/verification-grounding-pack.txt` — 렌더 산출물 검증 규율
 
-- `~/.agents/skills/prometheus/packs/investigation-protocol.txt` — debugging investigation discipline
-- `~/.agents/skills/prometheus/packs/verification-grounding-pack.txt` — render-artifact verification discipline
+> **참고 — `goals.py`는 폐기됐다.** fablize에서 가져온 다중 스토리 엔진(`goals.py`)은 ZCode `/goal` 명령과 겹쳤고, 더 중요하게는 goals.py의 검증 게이트에 약점이 있었다 — "에이전트가 자발적으로 `goals.py`를 호출해야만 발동한다"는 것. 게이트가 아무리 빡빡해도 입구가 부드러우면 무의미하다. ZCode `/goal`은 **런타임**이 매 턴 끝에 평가하므로 그런 입구가 애초에 없다. 따라서 검증 게이트는 goals.py가 아니라 ZCode `/goal`에 위임된다. 단, 에이전트는 `/goal`을 직접 설정할 수 없다 — 에이전트는 검증 가능한 목표 문장을 설계해 사용자에게 제안하고, 사용자가 `/goal`(또는 `/goal replace`)로 설정한다. (이 결정의 배경은 README의 "Why we dropped goals.py" 절을 볼 것.) 다중 스토리 실행은 §2 절차를 따른다.
 
-> **Note — `goals.py` has been removed.** The multi-story engine (`goals.py`) that prometheus brought from fablize overlapped with ZCode's `/goal` command, and more importantly, goals.py's verification gate had a weakness: "it only fires if the agent voluntarily calls `goals.py`" — no matter how hard the gate is, a soft entrance makes it meaningless. ZCode `/goal` is evaluated by the **runtime** at the end of every turn, so that entrance does not exist at all. Therefore the verification gate is delegated to ZCode `/goal`, not `goals.py`. However, the agent cannot set `/goal` directly — the agent designs verifiable goal sentences and proposes them to the user, who sets them via `/goal` (or `/goal replace`). (For the background on this decision, see the "Why we dropped goals.py" section in the README.) Multi-story execution follows the procedure in §2.
+## 1. 분해 전 — 맥락 확보 (필수, 건너뛰지 말 것)
 
-## 1. Before decomposition — secure context (required, do not skip)
+**분해의 질은 맥락에 달렸다.** 맥락 없이 분해하면 모델이 짐작으로 스토리를 만들고, 그 짐작이 틀리면 작업 전체가 엇나간다. 그러니 분해 **전에** 맥락을 확보해야 한다. 이 단계를 건너뛰고 곧장 `/goal`로 가지 마라.
 
-**The quality of decomposition depends on context.** Decomposing without context makes the model produce stories from guesses, and if those guesses are wrong the whole task goes the wrong way. So you must secure context **before** decomposing. Do not skip this step and jump straight to `/goal`.
+> **forge를 거친 경우:** forge가 만든 인수조건 목록이 곧 확보된 맥락이다. 1-A의 1~3번은 이미 채워져 있으니, 그 인수조건을 스토리로 옮기기만 하면 된다 (§1-C). 1-B 재탐색은 스킵한다.
 
-### 1-A. Context sufficiency self-diagnosis
+### 1-A. 맥락 충분성 자가진단
 
-For the task you are about to decompose, check the following four points yourself. **If even one is "I don't know," context is insufficient:**
+분해하려는 작업에 대해 스스로 네 점을 점검하라. **하나라도 "모르겠다"면 맥락이 불충분하다:**
 
-1. Do you specifically know the **codebase area** (files / modules / functions) this task will touch? — actual paths, not "somewhere."
-2. Do you know the **current structure and rules** of that area (architecture, naming conventions, dependencies)?
-3. Do you know the **success condition** of the task in observable form? — not "it works" but "this command / test produces this result."
-4. (If it is a research task) Have you surveyed **existing known approaches / solutions**?
+1. 이 작업이 닿을 **코드베이스 영역**(파일/모듈/함수)을 구체적으로 아는가? — "어딘가"가 아니라 실제 경로.
+2. 그 영역의 **현재 구조와 규칙**(아키텍처, 이름 규칙, 의존성)을 아는가?
+3. 작업의 **성공 조건**을 관측 가능한 형태로 아는가? — "잘 된다"가 아니라 "이 명령/테스트가 이 결과를 낸다."
+4. (연구 작업이라면) **기존 알려진 접근/해법**을 조사했는가?
 
-### 1-B. If context is insufficient — force an exploration-only subagent
+### 1-B. 맥락이 불충분하면 — 탐색 전용 서브에이전트를 강제
 
-If anything in 1-A is judged lacking, **do not guess yourself** — launch an exploration-only subagent (Agent tool, subagent_type=`Explore`) to gather context. The main agent does not explore and decompose at the same time — exploration goes to the subagent; decomposition is done by the main agent only after context is secured.
+1-A 중 뭐라도 부족하면 **직접 짐작하지 마라** — 탐색 전용 서브에이전트(Agent 툴, subagent_type=`Explore`)를 띄워 맥락을 모은다. 메인 에이전트는 탐색과 분해를 동시에 하지 않는다 — 탐색은 서브에이전트로, 분해는 맥락이 확보된 뒤에 메인 에이전트만이 한다.
 
 ```text
 Agent tool call (subagent_type: "Explore")
 prompt:
-  "Gather the context needed to decompose this task. Exploration scope: [codebase area or research topic].
-   Specifically, find out:
-   1) the actual paths and roles of the relevant files / modules
-   2) the structure / rules / dependencies of that area
-   3) how similar work is implemented in this codebase, if any
-   4) entry points (tests, CLI, endpoints) that can make the success condition observable
-   Return only the conclusion; do not dump file contents."
+  "이 작업을 분해하기 위해 필요한 맥락을 모아라. 탐색 범위: [코드베이스 영역 또는 연구 주제].
+   특히:
+   1) 관련 파일/모듈의 실제 경로와 역할
+   2) 그 영역의 구조/규칙/의존성
+   3) 이 코드베이스에서 비슷한 작업이 어떻게 구현됐는지
+   4) 성공 조건을 관측 가능하게 만드는 진입점(테스트, CLI, 엔드포인트)
+   파일 내용을 쏟지 말고 결론만 반환하라."
 ```
 
-Only after receiving the exploration results do you re-check 1-A. If still insufficient, narrow the exploration scope and run it once more. **Never propose a `/goal` sentence to the user until context is sufficient.**
+탐색 결과를 받은 뒤에만 1-A를 다시 점검한다. 그래도 부족하면 탐색 범위를 좁혀 한 번 더. **맥락이 충분해지기 전에는 절대 `/goal` 문장을 사용자에게 제안하지 마라.**
 
-### 1-C. Once context is sufficient — decompose into independent units
+### 1-C. 맥락이 충분해지면 — 독립 단위로 분해
 
-Now design the stories. Each story must satisfy **all** of the following:
+이제 스토리를 설계한다. 각 스토리는 **모두** 다음을 만족해야 한다:
 
-- **Independently verifiable**: when this story alone is completed, you must be able to prove that fact with a command / observation. ("I cleaned up the code" is unverifiable — "`ruff check .` reports 0 errors" is verifiable.)
-- **Independently performable**: a story that cannot even start without the result of another story is too large or ordered wrong. (Having a dependency is OK — that is what sequential stories mean. But if "without reading the previous story's output you don't even know the starting point," the decomposition is incomplete.)
-- **One-dimensional goal**: one story, one thing. "Add API + fix UI + tests" is three stories.
-- **A verifiable goal sentence**: each story must be expressible in a form that fits ZCode `/goal` — "this command produces this result" (see §2-C).
-- **The last one is a verification story**: the final story must be end-to-end verification.
+- **독립적으로 검증 가능**: 이 스토리만 완료됐을 때 그 사실을 명령/관측으로 증명할 수 있어야 한다. ("코드 정리했다"는 검증 불가 — "`ruff check .`이 0 에러"는 검증 가능.)
+- **독립적으로 수행 가능**: 다른 스토리의 결과 없이는 시작조차 할 수 없는 스토리는 너무 크거나 순서가 잘못된 것이다. (의존이 있는 건 괜찮다 — 순차 스토리가 그것이다. 하지만 "이전 스토리 출력을 안 읽으면 시작점조차 모른다"면 분해가 덜 된 것이다.)
+- **1차원 목표**: 한 스토리, 한 가지. "API 추가 + UI 수정 + 테스트"는 세 스토리다.
+- **검증 가능한 목표 문장**: 각 스토리는 ZCode `/goal`에 맞는 형태로 표현될 수 있어야 한다 — "이 명령이 이 결과를 낸다" (§2-C).
+- **마지막은 검증 스토리**: 최종 스토리는 반드시 엔드투엔드 검증이어야 한다.
 
-### 1-D. Decomposition example (good / bad)
+### 1-D. 분해 예시 (좋은 / 나쁜)
 
-> User: "Fix the login error"
+> 사용자: "로그인 에러 고쳐"
 
-**❌ Bad decomposition** (guessing without context):
-- G001: analyze the error
-- G002: fix the error
-- G003: verify
+**❌ 나쁜 분해** (맥락 없이 짐작):
+- G001: 에러 분석
+- G002: 에러 수정
+- G003: 검증
 
-Problem: "analyze the error" has no observable artifact. "fix the error" tells you neither what nor how. Each story is not independently verifiable. Putting such vague goals into `/goal` makes the verifier fool itself on the vagueness, and self-deception sets in.
+문제: "에러 분석"엔 관측 가능한 산물이 없다. "에러 수정"은 뭘 어떻게 하는지 알려주지 않는다. 각 스토리가 독립적으로 검증 가능하지 않다. 이런 모호한 목표를 `/goal`에 넣으면 판정기조차 모호함에 속고, 자기기만이 시작된다.
 
-**✅ Good decomposition** (after 1-B exploration identified `auth/login.ts:42`, the error log, and the existing test pattern):
-- G001: write an error reproduction script → running `node repro.js` prints the same error log
-- G002: fix the cause at `auth/login.ts:42` → `npm test auth/login` passes
-- G003: final verification → re-running `repro.js` shows no error + full `npm test` passes
+**✅ 좋은 분해** (1-B 탐색이 `auth/login.ts:42`, 에러 로그, 기존 테스트 패턴을 식별한 뒤):
+- G001: 에러 재현 스크립트 작성 → `node repro.js` 실행 시 같은 에러 로그 출력
+- G002: `auth/login.ts:42`의 원인 수정 → `npm test auth/login` 통과
+- G003: 최종 검증 → `repro.js` 재실행 시 에러 없음 + 전체 `npm test` 통과
 
-The difference: in a good decomposition each story has a **specific path + observable evidence**. This is only possible because 1-B exploration happened.
+차이: 좋은 분해의 각 스토리엔 **구체적 경로 + 관측 가능 증거**가 있다. 이건 1-B 탐색이 있었기에만 가능하다.
 
-## 2. Decomposition execution — sequential `/goal` multi-story (2+ sequential goals)
+## 2. 분해 실행 — 순차 `/goal` 다중 스토리 (2개 이상 순차 목표)
 
-After securing context and designing the decomposition in §1, **convert each story into a ZCode `/goal` sentence and propose it to the user**, and once the user sets a goal with it, work on only that story. Each time a story ends, propose the next story sentence.
+§1에서 맥락을 확보하고 분해를 설계한 뒤, **각 스토리를 ZCode `/goal` 문장으로 변환해 사용자에게 제안**하고, 사용자가 그것으로 목표를 설정하면 그 스토리만 작업한다. 스토리가 끝날 때마다 다음 스토리 문장을 제안한다.
 
-### 2-A. Why `/goal` (and not `goals.py`)
+### 2-A. 왜 `/goal`인가 (goals.py가 아닌)
 
-ZCode `/goal` is what makes the "verification gate" that prometheus once tried to implement directly via `goals.py` **enforced by the runtime**:
+ZCode `/goal`이 prometheus가 예전에 goals.py로 직접 구현하려 했던 "검증 게이트"를 **런타임이 강제**하게 만든다:
 
-- **The agent does not declare completion.** At the end of every turn the runtime verifier evaluates whether the goal is reached, and if not, it automatically proceeds to the next turn.
-- **It rejects proxy signals.** Passing tests / a successful build / writing code alone is not recognized as "done" — every condition the goal requires must be covered by evidence.
-- **Uncertainty is treated as incomplete.** "Seems roughly done" is not done — verify further or keep working.
+- **에이전트는 완료를 선언하지 않는다.** 매 턴 끝에 런타임 판정기가 목표 도달 여부를 평가하고, 아니면 자동으로 다음 턴으로 간다.
+- **대리 신호를 거부한다.** 테스트 통과/빌드 성공/코드 작성만으로는 "완료"로 인정 안 한다 — 목표가 요구하는 모든 조건이 증거로 덮여야 한다.
+- **불확실은 미완료로 본다.** "대충 된 것 같다"는 완료가 아니다 — 더 검증하거나 계속 작업하라.
 
-This is the decisive difference from `goals.py`. `goals.py` forced the checkpoint gate with `sys.exit()`, but **whether to call `goals.py` at all was the agent's voluntary choice** — a soft entrance neutralizes the gate. `/goal` has no such entrance; the runtime intervenes every turn.
+이게 goals.py와의 결정적 차이다. goals.py는 `sys.exit()`으로 체크포인트 게이트를 강제했지만, **goals.py를 호출할지 말지 자체가 에이전트의 자발적 선택**이었다 — 부드러운 입구가 게이트를 무력화한다. `/goal`엔 그런 입구가 없다; 런타임이 매 턴 끼어든다.
 
-### 2-B. Division of roles — the agent designs, the user sets
+### 2-B. 역할 분담 — 에이전트는 설계, 사용자는 설정
 
-> **Important: the agent cannot set `/goal` directly.** `/goal` is a ZCode chat input command and is not reachable from the agent's bash shell or tools. All the agent can do is **build a verifiable goal sentence and propose it to the user**. The user does the setting. Do not fool yourself about this limit — any text written on the assumption that you can create a goal via a prompt fails immediately.
+> **중요: 에이전트는 `/goal`을 직접 설정할 수 없다.** `/goal`은 ZCode 채팅 입력 명령이며 에이전트의 bash 셸이나 툴에서 닿지 않는다. 에이전트가 할 수 있는 전부는 **검증 가능한 목표 문장을 만들어 사용자에게 제안**하는 것이다. 설정은 사용자가 한다. 이 한계를 스스로에게 속이지 마라 — 프롬프트로 목표를 만들 수 있다고 가정하고 쓴 모든 글은 즉시 실패한다.
 
-Roles:
-- **Agent (prometheus)**: decomposes the stories via §1, converts each story into a `/goal` sentence in the 2-C format, and **presents it to the user**. Once the user has set it, work on only that story.
-- **User**: copies the sentence the agent presented and sets it in the chat input as `/goal` (first story) or `/goal replace` (subsequent stories).
-- **ZCode runtime**: runs the verifier on the set goal at the end of every turn. It judges regardless of the agent's completion declaration.
+역할:
+- **에이전트(prometheus)**: §1로 스토리를 분해하고, 각 스토리를 2-C 형식의 `/goal` 문장으로 바꿔 **사용자에게 제시**한다. 사용자가 설정하면 그 스토리만 작업한다.
+- **사용자**: 에이전트가 제시한 문장을 복사해 채팅 입력에서 `/goal`(첫 스토리) 또는 `/goal replace`(이후 스토리)로 설정한다.
+- **ZCode 런타임**: 설정된 목표에 대해 매 턴 끝에 판정기를 돌린다. 에이전트의 완료 선언과 무관하게 판정한다.
 
-### 2-C. How to build a good `/goal` sentence
+### 2-C. 좋은 `/goal` 문장 만드는 법
 
-Turn each story into a verifiable sentence exactly in the form designed in 1-C. **Avoid vague wording; write the verification command and expected output directly inside the sentence.** The agent presents this sentence to the user verbatim.
+각 스토리를 1-C에서 설계한 형태 그대로 검증 가능한 문장으로 바꾼다. **모호한 표현을 피하고, 검증 명령과 예상 결과를 문장 안에 직접 써라.** 에이전트는 이 문장을 사용자에게 그대로 제시한다.
 
-Good goal sentence (verifiable):
+좋은 목표 문장 (검증 가능):
 ```
-/goal Fix the EAUTH cause at auth/login.ts:42. Verification: `npm test auth/login` passes with 9 passing, and `node repro.js` exits with exit code 0 and prints no error log.
-```
-
-Bad goal sentence (unverifiable, risk of self-deception):
-```
-/goal Resolve the login error elegantly.
+/goal auth/login.ts:42의 EAUTH 원인을 고쳐라. 검증: `npm test auth/login`이 9 passed로 통과하고, `node repro.js`가 exit code 0으로 끝나며 에러 로그를 출력하지 않는다.
 ```
 
-The difference: a good goal has objective conditions (command + expected output) the verifier can judge. A bad goal, with vague words like "elegantly," fools even the verifier, and that becomes self-deception.
+나쁜 목표 문장 (검증 불가, 자기기만 위험):
+```
+/goal 로그인 에러를 우아하게 해결하라.
+```
 
-### 2-D. The sequential multi-story loop
+차이: 좋은 목표엔 판정기가 판정할 수 있는 객관적 조건(명령 + 예상 결과)이 있다. "우아하게" 같은 모호한 말이 든 나쁜 목표는 판정기조차 속이고, 그게 자기기만이 된다.
+
+### 2-D. 순차 다중 스토리 루프
 
 ```text
-1. Convert each story from the list designed in §1 into a /goal sentence in the 2-C format, and present the entire list to the user at once.
-2. Tell the user to set the first story sentence via /goal. (The user types it into the chat input.)
-3. Once the user signals it is set (or the system indicates goal mode), work on only that story. Do not touch the other stories.
-4. When the runtime verifier passes it (= a system reminder announces the goal is reached), present the next story sentence and tell the user to "replace via /goal replace."
-5. Repeat until the last story. The last story must always be an end-to-end verification story.
+1. §1에서 설계한 목록의 각 스토리를 2-C 형식의 /goal 문장으로 바꿔, 전체 목록을 한 번에 사용자에게 제시한다.
+2. 첫 스토리 문장을 /goal로 설정하라고 사용자에게 말한다. (사용자가 채팅 입력에 친다.)
+3. 사용자가 설정됐다고 신호하면(또는 시스템이 goal 모드를 알리면) 그 스토리만 작업한다. 다른 스토리는 건드리지 마라.
+4. 런타임 판정기가 통과시키면(= 시스템 리마인더가 목표 도달을 알리면) 다음 스토리 문장을 제시하고 "/goal replace로 교체하라"고 말한다.
+5. 마지막 스토리까지 반복. 마지막 스토리는 항상 엔드투엔드 검증이어야 한다.
 ```
 
-Rules:
-- Work on only **one** active goal at a time. This is not parallel.
-- **The agent never types `/goal` itself.** Always present the sentence to the user and leave the setting to them.
-- Do not declare a false "done" because you're stuck — the runtime will reject it anyway. Instead, gather more evidence or move into the §3 investigation procedure.
-- A single-step task (decomposition yields 1 story) skips this loop — one goal is enough. However, the §1 context securing can still be useful even in a single step, e.g. for identifying a bug's cause.
+규칙:
+- 한 번에 **하나의** 활성 목표만 작업한다. 병렬이 아니다.
+- **에이전트는 절대 직접 `/goal`을 치지 않는다.** 항상 문장을 사용자에게 제시하고 설정은 맡긴다.
+- 막혔다고 거짓 "완료"를 선언하지 마라 — 어차피 런타임이 거른다. 대신 증거를 더 모으거나 §3 조사 절차로 옮겨라.
+- 단일 단계 작업(분해가 1개 스토리)은 이 루프를 스킵한다 — 목표 하나면 충분. 다만 §1 맥락 확보는 단일 단계에서도 유용할 수 있다, 예컨대 버그 원인 식별.
 
-### 2-E. Status tracking
+### 2-E. 상태 추적
 
-You may record each story's progress in parallel with the TodoWrite tool (to show the user a visual progress indicator). However, **the completion judgment is made by the `/goal` runtime verifier, not by TodoWrite** — TodoWrite is a display, not a gate. Do not confuse them.
+각 스토리의 진행을 TodoWrite 툴로 병행 기록해도 좋다 (사용자에게 시각적 진행 지표를 보여주기 위해). 단, **완료 판정은 `/goal` 런타임 판정기가 내리는 것이지 TodoWrite가 아니다** — TodoWrite는 표시지 게이트가 아니다. 헷갈리지 마라.
 
-## 3. Deep investigation (debugging / unknown cause / review)
+## 3. 심층 조사 (디버깅 / 알 수 없는 원인 / 리뷰)
 
-Read and follow `~/.agents/skills/prometheus/packs/investigation-protocol.txt`: first reproduce → form 3+ competing hypotheses → gather evidence per hypothesis → trace the full causal chain (removing the symptom is not removing the defect) → verify before and after → report the hypotheses you rejected. For reviews, report all low-confidence findings and filter them in a separate step.
+`~/.agents/skills/prometheus/packs/investigation-protocol.txt`를 읽고 따르라: 먼저 재현 → 경쟁 가설 3개 이상 형성 → 가설별 증거 수집 → 인과 사슬 전체 추적 (증상 제거는 결함 제거가 아니다) → 전후 검증 → 기각한 가설 보고. 리뷰의 경우, 저신뢰 발견을 모두 보고하고 별도 단계에서 거른다.
 
-## 4. Verification grounding (render/executable artifacts — always)
+## 4. 검증 그라운딩 (렌더/실행 산출물 — 항상)
 
-For artifacts whose correctness only surfaces when you run them (HTML, SVG, games, UI, charts), follow `~/.agents/skills/prometheus/packs/verification-grounding-pack.txt`: run in the real renderer → observe the actual output → fix what the observation reveals → re-run. Static parsing confirms well-formed, not correct.
+실행해봐야만 옳음이 드러나는 산출물(HTML, SVG, 게임, UI, 차트)은 `~/.agents/skills/prometheus/packs/verification-grounding-pack.txt`를 따른다: 실제 렌더러에서 실행 → 실제 출력 관측 → 관측이 드러내는 것 수정 → 재실행. 정적 파싱은 well-formed를 확인할 뿐 correct를 확인하지 않는다.
 
-Perform this loop yourself — it is not "tell the user to open it and stop." You run it and observe it yourself, via a headless browser, script execution, reading screenshots, etc.
+이 루프를 직접 수행하라 — "사용자에게 열어보라고 하고 멈추는" 것이 아니다. 헤드리스 브라우저, 스크립트 실행, 스크린샷 읽기 등으로 직접 실행하고 관측하라.
 
-## 4-1. Working style (always)
+## 4-1. 작업 스타일 (항상)
 
-Start with the result. Stay within the requested scope (no incidental refactoring / abstraction). Ground every completion claim in this session's tool results. Confirm before destructive or hard-to-reverse actions.
+결과부터 시작하라. 요청된 범위 안에 머물러라 (우발적 리팩터링/추상화 금지). 모든 완료 주장을 이 세션의 툴 결과에 근거지어라. 파괴적이거나 되돌리기 어려운 행동 전에는 확인하라.
 
-## 5. At the capability ceiling (escalation)
+## 5. 역량 한계 (에스컬레이션)
 
-Signals that you've hit the model ceiling: stuck on the same problem 2+ times; open-ended creation where the detail itself is the value; a deep review that needs discovery beyond the spec. These are capability, not procedure, and the harness cannot fill them. In order: (1) **GLM-5.2 has two thinking-effort levels (High, Max) and scales with reasoning difficulty.** Proceed at High by default, and when the above ceiling signals appear, raise it to **Max** to activate deeper reasoning — Z.ai recommends Max for coding work. If the client does not expose Max or the current session is pinned to High, recommend to the user switching to a stronger reasoning mode (Max); (2) if still insufficient, hand off in a new session to a stronger model, with an evidence package (symptoms, attempts, failure points, reproduction); (3) otherwise, honestly report the limits and mark where a human should step in.
+모델 한계에 닿은 신호: 같은 문제에 2회 이상 막힘; 디테일 자체가 가치인 열린 창작; 스펙을 넘어 발견이 필요한 깊은 리뷰. 이건 역량이지 절차가 아니며, 하네스가 채울 수 없다. 순서대로: (1) **GLM-5.2는 thinking-effort 단계가 둘(High, Max)이고 추론 난이도에 따라 스케일한다.** 기본은 High로 진행하고, 위 한계 신호가 나타나면 **Max로 올려** 더 깊은 추론을 활성화한다 — Z.ai는 코딩 작업에 Max를 권장. 클라이언트가 Max를 노출하지 않거나 현재 세션이 High에 고정돼 있다면, 더 강한 추론 모드(Max)로의 전환을 사용자에게 권하라; (2) 그래도 부족하면, 증거 패키지(증상, 시도, 실패 지점, 재현)와 함께 새 세션에서 더 강한 모델에 넘긴다; (3) 그 외엔, 한계를 솔직히 보고하고 사람이 개입할 지점을 표시한다.
