@@ -5,7 +5,7 @@ description: A harness that forces verification, completion, and investigation a
 
 # prometheus 🔥
 
-> Just as Prometheus stole fire from the gods and brought it to humanity, this harness brings the working habits of strong agent models to **GLM-5.2** — run and observe directly, prove completion with evidence, investigate systematically. (The initial form of the code came from fivetaku/fablize, but its effectiveness figures are for a different model family and cannot be ported here. Effectiveness on GLM-5.2 is unmeasured.)
+> Just as Prometheus stole fire from the gods and brought it to humanity, this harness brings the working habits of strong agent models to **GLM-5.2** — run and observe directly, prove completion with evidence, investigate systematically. (The initial form of the code came from fivetaku/fablize, but its effectiveness figures are for a different model family and are not ported here. Effectiveness on GLM-5.2 is unmeasured.)
 >
 > Principle: a harness cannot raise a model's ceiling. It only makes the model reach its own ceiling — by forcing verification, completion, and investigation as **procedure**. If what blocks you is a capability ceiling (open-ended creativity, self-directed discovery), escalate (§5).
 
@@ -29,7 +29,7 @@ For the task you are about to decompose, check the following four points yoursel
 1. Do you specifically know the **codebase area** (files / modules / functions) this task will touch? — actual paths, not "somewhere."
 2. Do you know the **current structure and rules** of that area (architecture, naming conventions, dependencies)?
 3. Do you know the **success condition** of the task in observable form? — not "it works" but "this command / test produces this result."
-4. (If it's a research task) Have you surveyed **existing known approaches / solutions**?
+4. (If it is a research task) Have you surveyed **existing known approaches / solutions**?
 
 ### 1-B. If context is insufficient — force an exploration-only subagent
 
@@ -54,7 +54,7 @@ Only after receiving the exploration results do you re-check 1-A. If still insuf
 Now design the stories. Each story must satisfy **all** of the following:
 
 - **Independently verifiable**: when this story alone is completed, you must be able to prove that fact with a command / observation. ("I cleaned up the code" is unverifiable — "`ruff check .` reports 0 errors" is verifiable.)
-- **Independently performable**: a story that cannot even start without the result of another story is too large or ordered wrong. (Having a dependency is OK — that's what sequential stories mean. But if "without reading the previous story's output you don't even know the starting point," the decomposition is incomplete.)
+- **Independently performable**: a story that cannot even start without the result of another story is too large or ordered wrong. (Having a dependency is OK — that is what sequential stories mean. But if "without reading the previous story's output you don't even know the starting point," the decomposition is incomplete.)
 - **One-dimensional goal**: one story, one thing. "Add API + fix UI + tests" is three stories.
 - **A verifiable goal sentence**: each story must be expressible in a form that fits ZCode `/goal` — "this command produces this result" (see §2-C).
 - **The last one is a verification story**: the final story must be end-to-end verification.
@@ -127,14 +127,14 @@ The difference: a good goal has objective conditions (command + expected output)
 ```
 
 Rules:
-- Work on only **one** goal active at a time. This is not parallel.
+- Work on only **one** active goal at a time. This is not parallel.
 - **The agent never types `/goal` itself.** Always present the sentence to the user and leave the setting to them.
 - Do not declare a false "done" because you're stuck — the runtime will reject it anyway. Instead, gather more evidence or move into the §3 investigation procedure.
 - A single-step task (decomposition yields 1 story) skips this loop — one goal is enough. However, the §1 context securing can still be useful even in a single step, e.g. for identifying a bug's cause.
 
 ### 2-E. Status tracking
 
-You may record each story's progress in parallel with the TodoWrite tool (to show the user a visual progress indicator). However, **the completion judgment is made by the `/goal` runtime verifier, not by TodoWrite** — TodoWrite is a display, not a gate. Don't confuse them.
+You may record each story's progress in parallel with the TodoWrite tool (to show the user a visual progress indicator). However, **the completion judgment is made by the `/goal` runtime verifier, not by TodoWrite** — TodoWrite is a display, not a gate. Do not confuse them.
 
 ## 3. Deep investigation (debugging / unknown cause / review)
 
@@ -152,4 +152,4 @@ Start with the result. Stay within the requested scope (no incidental refactorin
 
 ## 5. At the capability ceiling (escalation)
 
-Signals that you've hit the model ceiling: stuck on the same problem 2+ times; open-ended creation where the detail itself is the value; a deep review that needs discovery beyond the spec. These are capability, not procedure, and the harness cannot fill them. In order: (1) adaptive thinking scales automatically with difficulty — to go higher, recommend a stronger reasoning mode to the user; (2) if still insufficient, hand off in a new session to a stronger model, with an evidence package (symptoms, attempts, failure points, reproduction); (3) otherwise, honestly report the limits and mark where a human should step in.
+Signals that you've hit the model ceiling: stuck on the same problem 2+ times; open-ended creation where the detail itself is the value; a deep review that needs discovery beyond the spec. These are capability, not procedure, and the harness cannot fill them. In order: (1) **GLM-5.2 has two thinking-effort levels (High, Max) and scales with reasoning difficulty.** Proceed at High by default, and when the above ceiling signals appear, raise it to **Max** to activate deeper reasoning — Z.ai recommends Max for coding work. If the client does not expose Max or the current session is pinned to High, recommend to the user switching to a stronger reasoning mode (Max); (2) if still insufficient, hand off in a new session to a stronger model, with an evidence package (symptoms, attempts, failure points, reproduction); (3) otherwise, honestly report the limits and mark where a human should step in.
