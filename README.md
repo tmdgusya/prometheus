@@ -1,94 +1,107 @@
-English | [한국어](README.ko.md)
+한국어 | [English](README.en.md)
 
 # prometheus 🔥
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 [![code from: fivetaku/fablize](https://img.shields.io/badge/code%20from-fivetaku%2Ffablize-orange.svg)](https://github.com/fivetaku/fablize)
 
-> Prometheus stole **fire** from the gods and brought it to humanity. This harness is that fire.
+> **세 스킬이 하나의 체인을 이룬다** — 의도를 정렬하고(`align`), 인수조건을 벼려(`forge`), 끝까지 실행·검증한다(`prometheus`).
 >
-> It brings the procedural fire held by strong agent models to **GLM-5.2**. Each story is a spark, and every time it passes a verification gate the fire catches. Only those who have seen that fire with their own eyes may say "done."
+> 프로메테우스가 신에게서 **불**을 훔쳐 인간에게 가져다주었다. 이 repo는 강한 에이전트 모델이 가진 절차의 불을 **GLM-5.2**에게 가져다주고, 그 불을 언제 붙일지 정렬하고, 어떤 모양으로 벼려 쓸지까지 갖춘다.
 
-## Why — why steal the fire
+## 체인 — 세 스킬의 역할
 
-GLM-5.2 is strong but often stops short — it produces an artifact yet never runs it, says "done" with no evidence, fixes one thing and drops another. This is not a capability gap, it's a **habit**. And a habit can be replaced with procedure.
+```
+align  →  forge   →  prometheus
+의도       인수조건     실행 + 검증
+```
 
-prometheus hands it the fire of that procedure:
+| 스킬 | 역할 | 산출물 | 언제 |
+|---|---|---|---|
+| **align** ⟷ | 의도를 정렬한다. 코드베이스를 먼저 탐색하고 모호함을 제로로 끌어내려 사용자와 합의한다. | handoff 문서 (의도 + 확정 범위 + 완료 조건) | 다단계 구현 전, 요청이 모호할 때 |
+| **forge** ⚒️ | handoff의 "완료" 조건을 `/goal`이 판정할 수 있는 객관적 인수조건(명령 + 예상 결과)으로 변환한다. | 인수조건 목록 | align 직후, prometheus 분해 전 |
+| **prometheus** 🔥 | 인수조건을 받아 `/goal` 문장으로 옮기고, 끝까지 실행·검증한다. | 실행 결과 + 증거 | forge 직후, 실제 작업 수행 |
 
-- When it produces an artifact, it **runs and observes it directly**.
-- For multi-step work it **decomposes, and the agent converts each story into a verifiable `/goal` sentence and proposes it to the user**. Once the user sets it via `/goal` (or `/goal replace`), the ZCode runtime judges completion every turn.
-- Bugs are traced via **reproduce → competing hypotheses → causal chain**.
+다단계 작업의 의도된 흐름: `align`으로 의도를 잡고 → `forge`로 완료 조건을 벼려 → `prometheus`로 끝까지 실행한다. 명확한 단일 작업은 align을 건너뛰고 곧장 forge/prometheus로 갈 수 있다.
 
-It cannot raise the model's ceiling. But it lights the path all the way up to that ceiling.
+## 왜 — 왜 불을 훔치는가
 
-## What is the fire (what it brings)
+GLM-5.2는 강하지만, 자주 멈춘다 — 산출물을 만들고도 직접 돌려보지 않는다, "다 했다"고 하고 증거는 없다, 한 가지를 고치다가 다른 것을 놓친다. 또 요청이 모호한 채로 찍어 구현을 시작해 한 시간을 엇나가기도 한다. 이건 능력이 아니라 **습관**이다. 습관은 절차로 바꿀 수 있다.
 
-| Procedure (spark) | Effect | Why |
+이 repo는 그 절차를 세 단계로 쥐여준다:
+
+- **align**: 구현 전에 의도를 정렬한다. 모호함을 끄집어내 사용자와 합의할 때까지 반복한다.
+- **forge**: 정렬된 "완료"를, 검증 가능한 인수조건(실행 명령 + 예상 결과)으로 벼린다.
+- **prometheus**: 산출물을 만들면 **직접 실행하고 관찰**하고, 다중 작업은 분해해 런타임이 매 턴 완료를 판정하게 하며, 버그는 **재현 → 경쟁 가설 → 인과사슬**로 추적한다.
+
+모델의 천장(ceiling)은 못 올린다. 하지만 천장까지 가는 길에 불을 밝혀준다.
+
+## prometheus가 더하는 것 — 불이란 무엇인가
+
+prometheus가 가져오는 절차(불씨)의 효과:
+
+| 절차 (불씨) | 효과 | 이유 |
 |---|:--:|---|
-| Verification grounding (direct run & observe) | 🔥 | See for yourself whether the artifact actually works |
-| Sequential `/goal` multi-story (ZCode runtime) | 🔥 | The runtime judges completion at the end of every turn — it rejects "done" without evidence |
-| Systematic investigation (reproduce → hypothesis → causal chain) | 🔥 | Don't cling to the first hypothesis; see the whole chain |
-| Capability | ❌ | Depth of discovery, creative detail — the model's share |
+| 검증 접지 (직접 실행·관찰) | 🔥 | 산출물이 정말 동작하는지 직접 본다 |
+| 순차 `/goal` multi-story (ZCode 런타임) | 🔥 | 매 턴 끝에 런타임이 완료 판정 — 증거 없는 "완료"를 거부 |
+| 체계적 조사 (재현 → 가설 → 인과사슬) | 🔥 | 첫 가설에 매달리지 않고 전체 사슬을 본다 |
+| 능력(capability) | ❌ | 발견의 깊이, 창의적 디테일 — 모델의 몫 |
 
-When it reaches capability, prometheus escalates rather than fakes it (SKILL.md §5).
+능력에 닿으면, prometheus는 흉내 내지 않고 에스컬레이션한다 (SKILL.md §5).
 
-## Why we dropped goals.py
+## Why we dropped goals.py — goals.py를 버린 이유
 
-prometheus originally shipped its own multi-story engine, `scripts/goals.py` — four commands (`create`/`next`/`checkpoint`/`status`) that forced non-empty evidence on `complete` and a verify gate on the final story. It came from fablize.
+prometheus는 원래 `scripts/goals.py`라는 자체 다중 스토리 엔진을 가지고 있었다 — `create`/`next`/`checkpoint`/`status` 네 명령으로, `complete` 시 증거를 강제하고 최종 스토리에 검증 게이트를 두는 구조. fablize에서 가져온 것이다.
 
-**Once we learned ZCode provides a `/goal` command, we dropped goals.py.** The reason isn't mere feature overlap — it's a difference in enforcement strength.
+그런데 **ZCode가 `/goal` 명령을 제공한다는 걸 알고 나서, goals.py를 폐기했다.** 이유는 단순한 기능 중복이 아니라 강제 수준의 차이다.
 
-- **goals.py's gate only fires if the agent voluntarily calls goals.py.** If the agent never runs `goals.py checkpoint`, the gate never gets a chance to fire. The most deterministic device has its **entrance** on the least deterministic layer (agent spontaneity).
-- **ZCode `/goal` has no entrance.** At the end of every turn the runtime evaluates whether the goal is reached, and if the evidence doesn't support it, it continues to the next turn automatically. The agent cannot declare "done" — the system judges.
-- **This isn't an abstract comparison — it was observed in this very project.** While demoing prometheus, the agent once finished a task that should have gone through the decomposition→verify-gate loop **without ever calling goals.py**. A hard gate is useless if you don't walk through its door. Had ZCode `/goal` been set instead, the system would have intervened every turn.
+- **goals.py의 게이트는 에이전트가 자발적으로 `goals.py`를 호출해야 작동한다.** `goals.py checkpoint`를 안 부르면 게이트가 작동할 기회 자체가 없다. 가장 결정론적인 장치의 **입구**가 가장 결정론적이지 않은 층(에이전트의 자발성)에 있다.
+- **ZCode `/goal`은 입구 자체가 없다.** 매 턴 끝에 런타임이 목표 도달을 평가하고, 증거가 안 나오면 자동으로 다음 턴을 진행한다. 에이전트가 "완료"를 선언할 수 없다 — 시스템이 판정한다.
+- **이건 추상적 비교가 아니라 이 프로젝트에서 실제로 관찰한 것이다.** prometheus를 시연하던 중 "분해→검증 게이트" 절차를 밟아야 할 자리에서 goals.py를 **한 번도 부르지 않고** 작업을 끝내버린 적이 있었다. 하드 게이트가 있었는데도 입구를 안 들어가니 무력했다. 같은 자리에서 ZCode `/goal`을 세팅했더면 시스템이 턴마다 끼어들었을 것이다.
 
-Conclusion: **the verification gate is delegated to ZCode `/goal`, not goals.py.** Note that the agent cannot set `/goal` directly — it designs verifiable goal sentences and proposes them to the user, who sets them via `/goal` (or `/goal replace`), after which the runtime enforces them each turn. What remains in prometheus is not a gate engine but the procedural wisdom to design good goal sentences for that gate (§1 context-gathering, independent-unit decomposition), plus the render-artifact verification (§4) and investigation discipline (§3) that the gate doesn't cover. That is prometheus's real value in the ZCode environment.
+그래서 결론: **검증 게이트의 강제는 goals.py가 아니라 ZCode `/goal`에 위임한다.** 단, 에이전트가 `/goal`을 직접 세팅할 수는 없다 — 에이전트는 검증 가능한 goal 문장을 설계해 사용자에게 제안하고, 사용자가 `/goal`(또는 `/goal replace`)로 세팅하면 그때부터 런타임이 강제한다. prometheus가 남는 부분은 게이트 엔진이 아니라, 게이트에 넣을 **좋은 goal 문장을 설계하는 절차적 지혜**(§1 맥락 확보, 독립 단위 분해)와, 게이트가 커버 못 하는 **렌더 산출물 검증**(§4)과 **조사 규율**(§3)이다. 이게 ZCode 환경에서 prometheus의 진짜 가치다.
 
-## What prometheus adds — feeding the sparks
+## 설치 — 불 받기
 
-The core design decision: it forces procedure that **raises the quality of decomposition.**
-
-1. **Context first** — before decomposing, self-diagnose context sufficiency with four questions.
-2. **An exploration-only subagent** — when context is lacking, the main agent doesn't guess; it launches an Explore subagent to survey the codebase / do research.
-3. **Independent-unit decomposition** — only after context is secured does it decompose, so each story satisfies "independently verifiable + independently performable + one-dimensional goal."
-
-Tell a model only "decompose" and it will produce stories from guesses. prometheus forces **how to decompose** as procedure.
-
-## Status — not yet validated
-
-We have **not yet measured whether these procedures actually help on GLM-5.2.** prometheus itself plans to run that measurement — A/B the same task with prometheus on / off, and compare completion rate, the share of evidence-backed completions, and rework count. Until measured, we do not claim "validated." (The initial form of the code came from fivetaku/fablize, but its effectiveness figures are for a different model family and cannot be ported here.)
-
-## Install — receiving the fire
-
-Install to the standard ZCode skill path:
+ZCode skill 표준 경로에 세 스킬을 설치:
 
 ```bash
 git clone https://github.com/tmdgusya/prometheus.git
-cp -R prometheus/skills/prometheus ~/.agents/skills/
+cp -R prometheus/skills/align prometheus/skills/forge prometheus/skills/prometheus ~/.agents/skills/
 ```
 
-After restart, it fires on `/prometheus` or triggers like "take it all the way" / "split into goals."
+재시작 후 각 스킬이 트리거로 발동한다:
 
-The completion judgment for multi-story is made by the ZCode `/goal` runtime — but the agent cannot set the goal directly. The agent designs verifiable goal sentences and proposes them to the user; once the user sets them via `/goal`, the runtime judges each turn.
+- **align** ⟷ — `/align` 또는 "정렬", "의도 맞춰", "문맥 파악해", "명확히 해줘"
+- **forge** ⚒️ — `/forge` 또는 "forge", "인수조건 만들어", "검증 조건 세워"
+- **prometheus** 🔥 — `/prometheus` 또는 "끝까지 해줘", "목표로 쪼개줘", "verify as you go"
 
-## How it burns — behavior
+멀티 스토리의 완료 판정은 ZCode `/goal` 런타임이 내린다 — 단, 에이전트가 직접 goal을 세팅할 수는 없다. 에이전트는 검증 가능한 goal 문장을 설계해 사용자에게 제안하고, 사용자가 `/goal`로 세팅하면 그때부터 런타임이 매 턴 판정한다.
 
-- **2+ sequential goals** → secure context → decompose into independent units → **the agent converts each story into a `/goal` sentence and proposes it**, the user sets it via `/goal` (first story) · `/goal replace` (subsequent) → the runtime judges completion every turn.
-- **Debugging / unknown cause** → reproduce → 3+ competing hypotheses → causal chain → report even the hypotheses you rejected.
-- **Render artifacts** (HTML/SVG/games/charts) → run and observe directly. Static parsing only checks well-formed.
-- **Capability ceiling** → recommend a stronger reasoning mode → hand off to a stronger model → escalate to a human.
+## 타오르는 법 — 동작
 
-## Honest limits — where the fire doesn't reach
+- **2+ 순차 목표** → 맥락 확보 → 독립 단위 분해 → **에이전트가 각 스토리를 `/goal` 문장으로 변환해 제안**, 사용자가 `/goal`(첫 스토리)·`/goal replace`(이후)로 세팅 → 런타임이 매 턴 완료 판정.
+- **디버깅/원인 불명** → 재현 → 3+ 경쟁 가설 → 인과사슬 → 기각한 가설까지 보고.
+- **렌더 산출물**(HTML/SVG/게임/차트) → 직접 실행하고 관찰. 정적 파싱은 well-formed만 확인할 뿐.
+- **능력 천장** → 더 강한 추론 모드 권고 → 더 강한 모델에게 인계 → 인간에게 에스컬레이션.
 
-- **It cannot raise capability.** The polish of open-ended creation and spontaneous discovery belong to model choice.
-- **GLM-5.2 effectiveness is unmeasured.** See Status above. prometheus only proposes procedure; it does not guarantee its effect.
+## 상태 — 아직 검증 전
 
-## Credits — origin of the fire
+이 절차들이 **GLM-5.2에서 실제로 도움이 되는지는 아직 측정하지 않았다.** prometheus 자체가 그 측정을 할 계획이다 — 동일 작업을 prometheus on / off로 A/B하고, 완료율·증거 기반 완료 비율·재작업 횟수를 비교한다. 측정 전까지 "검증됨"이라고 주장하지 않는다. (코드의 초기 형태는 fivetaku/fablize에서 왔지만, 그곳의 효과 수치는 다른 모델 패밀리 기준이라 여기로 옮겨담을 수 없다.)
 
-The **code** of prometheus started from **[`fivetaku/fablize`](https://github.com/fivetaku/fablize)** (MIT) — the investigation/verification packs and the routing design are its form. (The original `goals.py` multi-story engine was brought over too, but was dropped due to overlap with and the enforcement-strength difference of ZCode `/goal` — see "Why we dropped goals.py" above.) The original was built for a different model family, and its effectiveness figures are not ported here.
+## 정직한 한계 — 불이 닿지 않는 곳
 
-What prometheus added: adaptation to the ZCode skill format, the decomposition-forcing procedure (context securing + subagent exploration + independent-unit decomposition), **the design that delegates the verification gate to ZCode `/goal`**, the fire metaphor, and **a plan for an independent benchmark on GLM-5.2**.
+- **능력은 못 올린다.** 개방형 창작의 완성도·자발적 발견은 모델 선택의 영역이다.
+- **GLM-5.2 효과는 미측정.** 위 상태 참고. prometheus는 절차를 제안할 뿐, 그 효과를 장담하지 않는다.
 
-## License
+## 크레딧 — 불의 출처
 
-MIT — [LICENSE](./LICENSE). The MIT copyright of the original fivetaku/fablize is preserved.
+**prometheus의 코드**는 **[`fivetaku/fablize`](https://github.com/fivetaku/fablize)** (MIT)에서 출발했다 — 조사/검증 팩, 라우팅 설계가 그 형태다. (원래 `goals.py` 다중 스토리 엔진도 함께 가져왔으나, ZCode `/goal`과의 중복·강제 수준 차이로 폐기했다 — 위 "Why we dropped goals.py" 참고.) 원본은 다른 모델 패밀리를 위해 만들어졌고, 그곳의 효과 수치는 이곳으로 옮겨담지 않는다.
+
+**`align`과 `forge`는 이 repo에서 새로 만들어졌다.** fablize 출처가 아니다 — align은 "구현 전 의도 정렬"을, forge는 "handoff를 검증 가능 인수조건으로 변환"을 절차화한 것으로, 각각 prometheus의 실행·검증 절차와 짝을 이루도록 설계됐다.
+
+이 repo가 fablize에 더한 것: ZCode skill 포맷 적응, **`align`/`forge` 스킬 신규 작성**, 분해 강제 절차(맥락 확보 + 서브에이전트 탐색 + 독립 단위 분해), **검증 게이트를 ZCode `/goal`에 위임하는 설계**, 그리고 **GLM-5.2에서의 독자 벤치마크 계획**.
+
+## 라이선스
+
+MIT — [LICENSE](./LICENSE). 원본 fivetaku/fablize의 MIT 저작권은 보존된다.
